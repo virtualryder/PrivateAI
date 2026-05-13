@@ -1,6 +1,6 @@
 # PrivateAI — Private AI Agent Platform
 
-**Chat with your own documents. Your data never leaves your control.**
+**Chat with your own documents. You control the infrastructure. Encryption protects what you store.**
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.43-FF4B4B.svg)](https://streamlit.io)
@@ -13,28 +13,46 @@
 
 **95% of professionals have documents they can't put into ChatGPT.**
 
-Medical records, legal contracts, financial reports, proprietary research, HR files, client data — all of it is off-limits for most AI tools because of a single fundamental design flaw: **your data goes to someone else's server**.
+Medical records, legal contracts, financial reports, proprietary research, HR files, client data — all of it is off-limits for most AI tools because of a single fundamental design flaw: **your documents go to a corporate server in plaintext, where someone else controls them.**
 
-The market for enterprise AI document tools is **$4.4B and growing at 28% annually** (Grand View Research, 2024), yet most solutions require organizations to trust a third party with their most sensitive information. Regulated industries (healthcare, finance, legal, government) are effectively locked out entirely.
+The market for enterprise AI document tools is **$4.4B and growing at 28% annually** (Grand View Research, 2024), yet most solutions require organizations to hand their most sensitive information to a third party to process and store in readable form. Regulated industries — healthcare, finance, legal, government — are effectively locked out entirely.
 
-This creates a gap: powerful AI for documents, with **zero data exposure**.
+The gap isn't just about privacy preferences. It's a structural trust problem: the moment you paste a document into ChatGPT, OpenAI receives it in full, can use it for model improvement, and you have no visibility into where it goes.
 
 ---
 
 ## The Solution
 
-PrivateAI is a **privacy-first RAG (Retrieval-Augmented Generation) platform** that lets you upload documents and have an AI conversation with them — with military-grade encryption at every layer.
+PrivateAI is a **self-hosted, privacy-first RAG (Retrieval-Augmented Generation) platform**. You deploy it on infrastructure you control, and every document is encrypted before it is stored — so even a database breach exposes only ciphertext, never readable content.
 
-**What makes it different:**
+### An honest framing of the trust model
 
-| Feature | ChatGPT / Claude | PrivateAI |
+PrivateAI doesn't eliminate the concept of a server — it changes *who operates it* and *what that operator can see*.
+
+| Scenario | Who can read your documents? |
+|---|---|
+| ChatGPT / Claude | The AI company receives plaintext immediately |
+| PrivateAI, **self-hosted** (Railway, AWS, your machine) | **Only you** — you are the operator |
+| PrivateAI, hosted by a third party | That operator — same trust question as any hosted service |
+| PostgreSQL DB breach (self or hosted) | **Nobody** — stored text is encrypted, blobs are unreadable without the key |
+| Server operator with DB + filesystem access | Theoretically yes — this is true of any server-side application |
+
+**The primary use case is self-hosted deployment.** When you run PrivateAI on your own infrastructure, there is no corporate third party involved — no OpenAI, no Anthropic, no cloud vendor reading your documents. If you use a managed host, you're trusting that host, just as you would with any web application.
+
+What encryption adds in all scenarios: a database breach alone cannot expose document content. An attacker needs both the database *and* the per-user key files on the filesystem to decrypt anything.
+
+**What makes it different from corporate AI APIs:**
+
+| Feature | ChatGPT / Claude API | PrivateAI (self-hosted) |
 |---|---|---|
-| Document stays on your server | ✗ | ✅ |
-| Encrypted at rest | ✗ | ✅ (Fernet AES-128) |
+| Documents received in plaintext by vendor | ✅ yes | ✗ never |
+| Document text encrypted at rest | ✗ | ✅ Fernet AES-128 |
 | Per-user key isolation | ✗ | ✅ |
+| DB breach exposes readable text | ✅ yes | ✗ only ciphertext |
 | Audit trail of every query | ✗ | ✅ |
 | Runs fully offline | ✗ | ✅ (with Ollama) |
-| Open source | ✗ | ✅ |
+| No training on your data | ✗ (varies by plan) | ✅ |
+| Open source, auditable | ✗ | ✅ |
 
 ---
 
@@ -176,19 +194,34 @@ graph LR
 ## How Your Data Is Secured
 
 ### 1. Encryption at Rest
-Every document chunk is encrypted with **Fernet** (AES-128-CBC + HMAC-SHA256) before being stored. The vector store contains only numerical embeddings — never your actual text.
+Every document chunk is encrypted with **Fernet** (AES-128-CBC + HMAC-SHA256) before being stored. The vector store contains only numerical embeddings — never your actual text. The PostgreSQL database stores only ciphertext.
 
 ### 2. Per-User Key Isolation
-Each user generates their own encryption key on their device. The key is stored only:
+Each user generates their own encryption key during onboarding. The key is stored:
 - In the user's browser session (cleared on logout)
 - In a `.key` file in the user's private data directory on the server
 
-**No one — including the server operator — can read User A's documents with User B's key.**
+**User A's key cannot decrypt User B's data — ever.** This is enforced cryptographically, not just by access control.
 
-### 3. 12-Word Recovery Phrase
+However, it is important to be clear: a server operator who has access to *both* the filesystem (where `.key` files live) *and* the database (where encrypted chunks are stored) could theoretically decrypt documents. This is the same trust boundary as any server-side application. The solution to this is self-hosting — when you control the server, you are the only one with that access.
+
+### 3. What a Database Breach Actually Exposes
+
+If only the PostgreSQL database is compromised:
+
+| Table | What an attacker sees |
+|---|---|
+| `users` | Usernames + bcrypt password hashes (not reversible) |
+| `documents` | Filenames, chunk counts, SHA256 hashes — no content |
+| `audit_log` | Event types, timestamps, model used — no content |
+| ChromaDB | Encrypted blobs (`text_enc` field) — unreadable without the key |
+
+A database breach alone exposes metadata, not document content. The attacker also needs the `.key` files from the filesystem.
+
+### 4. 12-Word Recovery Phrase
 Each key is deterministically derived from a 12-word BIP39-style mnemonic phrase. The phrase is shown once during setup and never stored digitally. It is the only way to recover data if the key file is lost.
 
-### 4. Hybrid AI Routing with Privacy Awareness
+### 5. Hybrid AI Routing with Privacy Awareness
 PrivateAI scores each query for complexity and routes accordingly:
 
 ```
@@ -196,12 +229,12 @@ Complexity Score < Threshold → Ollama (local, private, free)
 Complexity Score ≥ Threshold → OpenAI GPT-4o (cloud, more capable)
 ```
 
-The UI always shows a **LOCAL** or **CLOUD** badge on every response so you know exactly where your query went. The audit log captures every event.
+The UI always shows a **LOCAL** or **CLOUD** badge on every response so you know exactly where your query went. The audit log captures every event permanently.
 
-### 5. Multi-Tenant Database Isolation
-All database tables include a `user_id` column. Every query is scoped by `user_id` — there is no shared data between accounts. An admin can see user account records but cannot access encrypted document content.
+### 6. Multi-Tenant Row-Level Isolation
+All database tables include a `user_id` column. Every query is scoped by `user_id` — there is no data sharing between accounts at the application layer. An admin account can see user registration records but cannot access or decrypt any user's document content.
 
-### 6. Upload Size Limit
+### 7. Upload Size Limit
 File uploads are capped at **1 GB per file** to prevent resource exhaustion.
 
 ---
