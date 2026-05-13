@@ -259,6 +259,68 @@ def get_audit_log(user_id: str, limit: int = 200) -> list[dict]:
         return _rows(cur)
 
 
+def get_recent_audit_log_all_users(limit: int = 200) -> list[dict]:
+    """Return the most recent audit events across all users (admin use only)."""
+    ph = _ph()
+    with _cursor() as cur:
+        cur.execute(
+            f"SELECT * FROM audit_log ORDER BY id DESC LIMIT {ph}",
+            (limit,),
+        )
+        return _rows(cur)
+
+
+def get_user_activity_stats() -> dict[str, dict]:
+    """
+    Return per-user activity stats in one query pass.
+    Returns: {user_id: {queries, ingestions, errors, last_activity, cloud_calls}}
+    """
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT
+                user_id,
+                COUNT(*) AS total_events,
+                SUM(CASE WHEN event_type = 'query'  THEN 1 ELSE 0 END) AS queries,
+                SUM(CASE WHEN event_type = 'ingest' THEN 1 ELSE 0 END) AS ingestions,
+                SUM(CASE WHEN event_type = 'error'  THEN 1 ELSE 0 END) AS errors,
+                SUM(CASE WHEN local_only = 0 OR local_only = FALSE THEN 1 ELSE 0 END) AS cloud_calls,
+                MAX(timestamp) AS last_activity
+            FROM audit_log
+            GROUP BY user_id
+        """)
+        rows = _rows(cur)
+
+    cur2_result = {}
+    with _cursor() as cur:
+        cur.execute("SELECT user_id, COUNT(*) AS doc_count FROM documents GROUP BY user_id")
+        for r in cur.fetchall():
+            cur2_result[r["user_id"]] = r["doc_count"]
+
+    stats = {}
+    for row in rows:
+        uid = row["user_id"]
+        stats[uid] = {
+            "queries":     int(row["queries"] or 0),
+            "ingestions":  int(row["ingestions"] or 0),
+            "errors":      int(row["errors"] or 0),
+            "cloud_calls": int(row["cloud_calls"] or 0),
+            "last_activity": (row["last_activity"] or "")[:19],
+            "doc_count":   cur2_result.get(uid, 0),
+        }
+    return stats
+
+
+def check_db_connection() -> tuple[bool, str]:
+    """Return (ok, message) — used by the admin health check."""
+    try:
+        with _cursor() as cur:
+            cur.execute("SELECT 1")
+        backend = "PostgreSQL" if _USE_PG else "SQLite"
+        return True, f"{backend} connection OK"
+    except Exception as exc:
+        return False, str(exc)
+
+
 # ── Settings (DB-backed, complements per-user YAML) ───────────────────────────
 
 def get_setting(key: str, user_id: str, default: str | None = None) -> str | None:
