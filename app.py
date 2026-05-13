@@ -50,7 +50,7 @@ for _k, _v in _DEFAULTS.items():
 
 # ── Auth gate — must be first ─────────────────────────────────────────────────
 if st.session_state["user_id"] is None:
-    from pages import auth as auth_page
+    from views import auth as auth_page
     auth_page.render()
     st.stop()
 
@@ -149,20 +149,20 @@ fernet: Fernet | None = st.session_state["fernet_key"]
 # All pages except Onboarding and Admin require a loaded key
 if page not in ("Onboarding", "Admin") and fernet is None:
     st.error("No encryption key loaded. Please complete setup first.")
-    from pages import onboarding
+    from views import onboarding
     onboarding.render(user_id=user_id)
     st.stop()
 
 if page == "Onboarding":
-    from pages import onboarding
+    from views import onboarding
     onboarding.render(user_id=user_id)
 
 elif page == "Ingest Documents":
-    from pages import ingestion_ui
+    from views import ingestion_ui
     ingestion_ui.render(embedding_fn=_embedding_fn, fernet=fernet, user_id=user_id)
 
 elif page == "Chat":
-    from pages import chat
+    from views import chat
     chat.render(
         fernet=fernet,
         embedding_fn=_embedding_fn,
@@ -171,7 +171,7 @@ elif page == "Chat":
     )
 
 elif page == "Settings":
-    from pages import settings as settings_page
+    from views import settings as settings_page
     settings_page.render(user_id=user_id)
     st.session_state["settings"] = _load_settings()
 
@@ -179,5 +179,5 @@ elif page == "Admin":
     if not st.session_state.get("is_admin"):
         st.error("Access denied.")
     else:
-        from pages import admin
+        from views import admin
         admin.render()
