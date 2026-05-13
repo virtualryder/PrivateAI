@@ -253,11 +253,21 @@ File uploads are capped at **1 GB per file** to prevent resource exhaustion.
 
 ---
 
+## Running AI Locally (No Internet Required)
+
+Want to use PrivateAI without sending any queries to OpenAI? You can run a free, open-source AI model entirely on your own machine using Ollama.
+
+**→ [Full step-by-step guide for beginners: docs/local-ai-setup.md](docs/local-ai-setup.md)**
+
+Covers: hardware requirements, Windows/Mac/Linux install, choosing the right model for your computer, and connecting it to PrivateAI. No technical background required.
+
+---
+
 ## Quick Start — Local Development
 
 ### Prerequisites
 - Python 3.11+
-- [Ollama](https://ollama.com) (optional — enables local-only mode)
+- [Ollama](https://ollama.com) (optional — enables local-only mode; see [setup guide](docs/local-ai-setup.md))
 
 ### 1. Clone and install
 
