@@ -1,0 +1,7 @@
+# PrivateAI agent permissions
+# Future: granular control over which data sources the agent can access.
+# Currently enforced via the "enabled" flag on each document in the DB.
+
+allow_document_access: true
+allow_audit_log_queries: false
+allow_settings_read: false

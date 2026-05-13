@@ -1,0 +1,42 @@
+# UI
+streamlit==1.43.0
+
+# LangChain
+langchain==0.3.14
+langchain-openai==0.2.14
+langchain-core==0.3.28
+langchain-community==0.3.14
+
+# OpenAI
+openai==1.59.0
+
+# Local models
+ollama==0.4.4
+sentence-transformers==3.3.1
+
+# Vector store
+chromadb==0.6.3
+
+# Document loading
+pymupdf==1.25.1
+python-docx==1.1.2
+
+# Encryption
+cryptography==44.0.0
+
+# Auth
+bcrypt==4.2.1
+
+# Database — PostgreSQL (Railway) + SQLite (local dev, built into Python)
+psycopg2-binary==2.9.9
+
+# Config / env
+python-dotenv==1.0.1
+pyyaml==6.0.2
+
+# Data
+pandas==2.2.3
+
+# HTTP / utilities
+requests==2.32.3
+tenacity==9.0.0

@@ -1,0 +1,66 @@
+version: "3.9"
+
+# Local development stack.
+# For Railway deployment, see README.md — PostgreSQL and volumes are managed by Railway.
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: privateai_db
+    environment:
+      POSTGRES_DB: privateai
+      POSTGRES_USER: privateai
+      POSTGRES_PASSWORD: localdevpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U privateai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: privateai_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # GPU support (optional — falls back to CPU silently if unavailable)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              count: all
+
+  privateai:
+    build: .
+    container_name: privateai_app
+    ports:
+      - "8501:8501"
+    environment:
+      # PostgreSQL connection (matches the postgres service above)
+      DATABASE_URL: postgresql://privateai:localdevpassword@postgres:5432/privateai
+      # Override localhost with Docker service name for Ollama
+      OLLAMA_HOST: http://ollama:11434
+      DATA_DIR: /app/data
+    volumes:
+      # Persist encryption keys, vector stores, and uploads
+      - ./data:/app/data
+      # Persist shared config
+      - ./config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_data:

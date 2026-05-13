@@ -1,0 +1,8 @@
+# PrivateAI default settings
+# These are overridden by the Settings page in the UI.
+
+openai_api_key: ""
+local_model: "llama3"
+openai_model: "gpt-4o"
+complexity_threshold: 60
+embedding_provider: "local"
